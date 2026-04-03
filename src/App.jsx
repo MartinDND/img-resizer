@@ -6,28 +6,43 @@ import ProcessButton from './components/ProcessButton'
 import { processImages } from './utils/imageProcessor'
 
 const defaultSettings = {
-  resizeMode: 'percent',   // 'percent' | 'pixels'
+  resizeMode: 'percent',
   percent: 50,
   width: 1920,
   height: 1080,
   keepAspectRatio: true,
   quality: 80,
-  format: 'original',      // 'original' | 'jpeg' | 'webp' | 'png'
+  format: 'original',
   prefix: '',
   suffix: '',
 }
 
+function loadDimensions(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => { URL.revokeObjectURL(url); resolve({ w: img.naturalWidth, h: img.naturalHeight }) }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+    img.src = url
+  })
+}
+
 export default function App() {
-  const [files, setFiles] = useState([])
+  const [files, setFiles] = useState([])       // { file, w, h }[]
   const [settings, setSettings] = useState(defaultSettings)
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
 
-  const handleDrop = useCallback((newFiles) => {
+  const handleDrop = useCallback(async (newFiles) => {
+    const withDims = await Promise.all(
+      newFiles.map(async (file) => {
+        const dims = await loadDimensions(file)
+        return { file, w: dims?.w ?? null, h: dims?.h ?? null }
+      })
+    )
     setFiles(prev => {
-      const existing = new Set(prev.map(f => f.name + f.size))
-      const filtered = newFiles.filter(f => !existing.has(f.name + f.size))
-      return [...prev, ...filtered]
+      const existing = new Set(prev.map(f => f.file.name + f.file.size))
+      return [...prev, ...withDims.filter(f => !existing.has(f.file.name + f.file.size))]
     })
   }, [])
 
@@ -42,7 +57,7 @@ export default function App() {
     setProcessing(true)
     setProgress({ current: 0, total: files.length })
     try {
-      await processImages(files, settings, (current) => {
+      await processImages(files.map(f => f.file), settings, (current) => {
         setProgress({ current, total: files.length })
       })
     } finally {
@@ -61,7 +76,13 @@ export default function App() {
 
         {files.length > 0 && (
           <>
-            <FileList files={files} onRemove={handleRemove} onClear={handleClear} disabled={processing} />
+            <FileList
+              files={files}
+              settings={settings}
+              onRemove={handleRemove}
+              onClear={handleClear}
+              disabled={processing}
+            />
             <Settings settings={settings} onChange={setSettings} disabled={processing} />
             <ProcessButton
               fileCount={files.length}

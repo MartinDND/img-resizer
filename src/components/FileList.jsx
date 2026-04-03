@@ -1,9 +1,26 @@
-function formatSize(bytes) {
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+import { estimateOutputSize, formatSize } from '../utils/estimateSize'
+
+function SizeEstimate({ file, settings }) {
+  const estimated = estimateOutputSize(file.file.size, file.w, file.h, settings)
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs shrink-0">
+      <span className="text-zinc-500">{formatSize(file.file.size)}</span>
+      {estimated !== null && (
+        <>
+          <svg className="w-3 h-3 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <span className={estimated < file.file.size ? 'text-emerald-400' : 'text-amber-400'}>
+            ~{formatSize(estimated)}
+          </span>
+        </>
+      )}
+    </div>
+  )
 }
 
-export default function FileList({ files, onRemove, onClear, disabled }) {
+export default function FileList({ files, settings, onRemove, onClear, disabled }) {
   return (
     <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
@@ -20,14 +37,14 @@ export default function FileList({ files, onRemove, onClear, disabled }) {
       </div>
 
       <ul className="max-h-64 overflow-y-auto divide-y divide-zinc-800/60">
-        {files.map((file, i) => (
+        {files.map((f, i) => (
           <li key={i} className="flex items-center justify-between px-4 py-2.5 group">
             <div className="flex items-center gap-3 min-w-0">
               <span className="text-zinc-500 text-xs w-6 shrink-0 text-right">{i + 1}</span>
-              <span className="text-sm text-zinc-200 truncate">{file.name}</span>
+              <span className="text-sm text-zinc-200 truncate">{f.file.name}</span>
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-3">
-              <span className="text-xs text-zinc-500">{formatSize(file.size)}</span>
+              <SizeEstimate file={f} settings={settings} />
               <button
                 onClick={() => onRemove(i)}
                 disabled={disabled}
